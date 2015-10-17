@@ -1,7 +1,7 @@
 # ImageScaling
 This code included a C++ port of John Costella's 'Magic Kernel', which he wrote in C#.  It is a 1:2:2:1 convolution filter in one dimension.
 
-This is implemented as part of a simple bitmaps class and simple file format.  The bitmaps class handled 16-bit linear data primarily, in 4 channels.  I am using this for stereoscopic computer graphics for digital cinema.
+This is implemented as part of a simple bitmap class and simple file format.  The bitmaps class handled 16-bit linear data primarily, in 4 channels.  I am using this for stereoscopic computer graphics for digital cinema.
 
 The file format is defined in simple.h.
 
