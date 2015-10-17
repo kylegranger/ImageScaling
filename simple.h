@@ -1,3 +1,9 @@
+// File: simple.h
+// Date: August 24, 2014
+// Create by: Kyle Granger
+// License: Public Domain
+// Checked into Github: October 17, 2015
+
 #ifndef SIMPLE_H
 #define SIMPLE_H
 
