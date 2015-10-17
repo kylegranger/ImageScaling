@@ -1,3 +1,9 @@
+// File: linear16.h
+// Date: August 24, 2014
+// Create by: Kyle Granger
+// License: Public Domain
+// Checked into Github: October 17, 2015
+
 
 #ifndef __FILTER16_H
 #define __FILTER16_H
