@@ -3,7 +3,7 @@
 // Date: August 24, 2014
 // Create by: Kyle Granger
 // License: Public Domain
-// Checked into Githib: October 17, 2015
+// Checked into Github: October 17, 2015
 
 #ifndef ACIDTYPES_H
 #define ACIDTYPES_H
