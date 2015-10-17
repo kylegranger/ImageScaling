@@ -1,3 +1,9 @@
+// File: linear16.cpp
+// Date: August 24, 2014
+// Create by: Kyle Granger
+// License: Public Domain
+// Checked into Githib: October 17, 2015
+
 #include "windows.h"
 #include "math.h"
 #include <malloc.h>
