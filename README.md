@@ -3,9 +3,7 @@ This code included a C++ port of John Costella's 'Magic Kernel', which he wrote 
 
 This is implemented as part of a simple bitmap class and simple file format.  The bitmap class handles 16-bit linear data primarily, in 4 channels.  I am using this for stereoscopic computer graphics for digital cinema.
 
-The file format is defined in simple.h.
-
-The bitmap in linear16.h.  
+The file format is defined in simple.h.  The bitmap is in linear16.h.  
 
 Power-of-two upsampling and downscaling is straight forward through the respective methods declared in linear16.h (Downscale/Upscale).  Although these are 2D scalers, it is possible to scale in only one dimension: e.g., UpscaleX() and UpscaleY().There are also some other image processing goodies there, which can safely be ignored.  The main scaling work in done in C functions in filter16.cpp
 
