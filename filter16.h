@@ -1,4 +1,4 @@
-// File: linear16.h
+// File: filter16.h
 // Date: August 24, 2014
 // Create by: Kyle Granger
 // License: Public Domain
