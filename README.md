@@ -7,7 +7,7 @@ The file format is defined in simple.h.
 
 The bitmap in linear16.h.  
 
-Power-of-two upsampling and downscaling is straight forward through the respective methods declared in liner16.h (Downscale/Upscale).  There are also some other image processing goodies there, which can safely be ignored.  The main scaling work in done in C functions in filter16.cpp
+Power-of-two upsampling and downscaling is straight forward through the respective methods declared in liner16.h (Downscale/Upscale).  Although these are 2D scalers, it is possible to scale in only one dimension: e.g., UpscaleX() and UpscaleY().There are also some other image processing goodies there, which can safely be ignored.  The main scaling work in done in C functions in filter16.cpp
 
 I am sure there are several optimizations that could be done to the core filter code.  But it works.
 
