@@ -1,10 +1,7 @@
 // File: linear16.cpp
-// Date: August 24, 2014
-// Create by: Kyle Granger
-// License: Public Domain
-// Checked into Githib: October 17, 2015
+// Created by: Kyle Granger
+// License: MIT
 
-#include "windows.h"
 #include "math.h"
 #include <malloc.h>
 #include <string.h>
@@ -13,7 +10,9 @@
 #include "linear16.h"
 #include "filter16.h"
 #include "simple.h"
-#include "pool.h"
+
+
+
 
 CLinear16::CLinear16()
 {
@@ -29,7 +28,7 @@ CLinear16::CLinear16(int width, int height)
 {
 	mWidth = width;
 	mHeight = height;
-	mDataSize = mWidth * mHeight * sizeof(color_t);
+	mDataSize = mWidth * mHeight * (int) sizeof(color_t);
 	mData = new color_t[ mWidth * mHeight ];
 	memset(mData,128,mDataSize);
 	assert(mData);
@@ -41,53 +40,60 @@ CLinear16::CLinear16(int width, int height)
 
 CLinear16::~CLinear16()
 {
-	if ( mData ) 
+	if (mData) 
 	{
 		delete [] mData;
 		mData = NULL;
 	}
 }
 
-bool CLinear16::ReadBmp( char *filename )
+bool CLinear16::ReadBmp(std::string filename)
 {
 	size_t res;
+    printf("CLinear16::ReadBmp %s\n", filename.c_str());
 
-	FILE *f = fopen(filename,"rb");
-	if ( !f ) 
+	FILE *f = fopen(filename.c_str(),"rb");
+	if (!f) 
 	{
-		assert(0);
 		return false;
 	}
 
-	BITMAPFILEHEADER bfh;
+	BitmapFileHeader bfh;
 	res = fread(&bfh,1,sizeof(bfh),f);
+    assert(res == sizeof(bfh));
 
-	BITMAPINFOHEADER bmh;
+	BitmapInfoHeader bmh;
 	res = fread(&bmh,1,sizeof(bmh),f);
+    assert(res == sizeof(bmh));
+    fseek (f, bfh.bfOffBits, SEEK_SET);
+
 
 	bool isFlipped = (bmh.biHeight > 0);
 	mWidth = bmh.biWidth;
 	mHeight = isFlipped ? bmh.biHeight : -bmh.biHeight ;
 	
-	int num_pixels = mWidth * mHeight;
-	int size = num_pixels * sizeof(color_t);
-	if ( size > mDataSize )
+	auto numPixels = mWidth * mHeight;
+	auto size = numPixels * sizeof(color_t);
+	if (size > mDataSize)
 	{
-		if ( mData ) delete [] mData;
-		mData = new color_t[num_pixels];
+		if (mData) delete [] mData;
+		mData = new color_t[numPixels];
 		assert(mData);
 		mDataSize = size;
 	}
 
-	uint8_t *buffer = new uint8_t[ mWidth * mHeight * 3 ];
-	res = fread(buffer,1, mWidth * mHeight * 3,f);
+    size_t scanlineSize = 0xffffffc & (mWidth * 3 + 3);
+    size_t padding = scanlineSize - mWidth * 3;
+	uint8_t *buffer = new uint8_t[ scanlineSize * mHeight];
+    size = scanlineSize * mHeight;
+	res = fread(buffer,1, size,f);
+    assert(res == size);
 
-	color_t *c = mData;
 	uint8_t *cptr = buffer;
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
 		color_t *c = isFlipped ? mData + (mHeight - y - 1) * mWidth : mData + y * mWidth;
-		for ( int x = 0; x < mWidth; x++ )
+		for (int x = 0; x < mWidth; x++)
 		{
 			c->b = cptr[0] * 65535 / 255;
 			c->g = cptr[1] * 65535 / 255;
@@ -95,6 +101,7 @@ bool CLinear16::ReadBmp( char *filename )
 			cptr += 3;
 			c++;
 		}
+        cptr += padding;
 	}
 
 	delete [] buffer;
@@ -102,51 +109,6 @@ bool CLinear16::ReadBmp( char *filename )
 	return true;
 }
 
-
-bool CLinear16::ReadBmpCropped( char *filename, int offsetX, int offsetY )
-{
-	unsigned char buffer[48*1024];
-	size_t res;
-
-	FILE *f = fopen(filename,"rb");
-	if ( !f ) 
-	{
-		assert(0);
-		return false;
-	}
-
-	BITMAPFILEHEADER bfh;
-	res = fread(&bfh,1,sizeof(bfh),f);
-
-	BITMAPINFOHEADER bmh;
-	res = fread(&bmh,1,sizeof(bmh),f);
-
-	bool isFlipped = (bmh.biHeight > 0);
-	int fileWidth = bmh.biWidth;
-	int fileHeight = isFlipped ? bmh.biHeight : -bmh.biHeight ;
-	
-	for ( int y = 0; y < offsetY; y++ )
-		res = fread(buffer,1, fileWidth * 3,f);
-
-	color_t *c = mData;
-	for ( int y = 0; y < mHeight; y++ )
-	{
-		res = fread(buffer,1, fileWidth * 3,f);
-		uint8_t *cptr = buffer + offsetX*3;
-		color_t *c = isFlipped ? mData + (mHeight - y - 1) * mWidth : mData + y * mWidth;
-		for ( int x = 0; x < mWidth; x++ )
-		{
-			c->b = cptr[0] * 65535 / 255;
-			c->g = cptr[1] * 65535 / 255;
-			c->r = cptr[2] * 65535 / 255;
-			cptr += 3;
-			c++;
-		}
-	}
-
-	fclose(f);
-	return true;
-}
 
 
 void CLinear16::ChannelSwap(int swap)
@@ -212,7 +174,7 @@ void CLinear16::Invert()
 {
 	color_t *c = mData;
 	int numpixels = mWidth * mHeight;
-	for ( int i = 0; i < numpixels; i++ )
+	for (int i = 0; i < numpixels; i++)
 	{
 		c->r = 65535 - c->r;
 		c->g = 65535 - c->g;
@@ -222,86 +184,41 @@ void CLinear16::Invert()
 }
 
 
-bool CLinear16::Init( int width, int height )
+bool CLinear16::Init(int width, int height)
 {
 	mWidth = width;
 	mHeight = height;
-	mDataSize = mWidth * mHeight * sizeof(color_t);
+	mDataSize = mWidth * mHeight * (int)sizeof(color_t);
 	mData = new color_t[ mWidth * mHeight ];
-	if ( !mData ) return false;
+	if (!mData) return false;
 	return true;
 }
 
-void CLinear16::GetPixel( int x, int y, color_t &color)
+void CLinear16::GetPixel(int x, int y, color_t &color)
 {
-	if ( x < 0 )        x = 0;
-	if ( x >= mWidth )  x = mWidth - 1;
-	if ( y < 0 )        y = 0;
-	if ( y >= mHeight ) y = mHeight - 1;
+	if (x < 0)        x = 0;
+	if (x >= mWidth)  x = mWidth - 1;
+	if (y < 0)        y = 0;
+	if (y >= mHeight) y = mHeight - 1;
 
 	color_t *c = mData + y * mWidth + x;
 	color = *c;
 }
 
-/*void CLinear16::SetPixel( int x, int y, color_t &color)
+bool CLinear16::WriteBmp(std::string filename)
 {
-	if ( x < 0 )        x = 0;
-	if ( x >= mWidth )  x = mWidth - 1;
-	if ( y < 0 )        y = 0;
-	if ( y >= mHeight ) y = mHeight - 1;
+	int size;
+	BitmapFileHeader bfh;
+	BitmapInfoHeader bmh;
 
-	color_t *c = mData + (mHeight - y - 1) * mWidth * 3 + x * 3;
-	*c = color;
-}
-
-
-void CLinear16::Mix( CLinear16 *bitmap_a, CLinear16 *bitmap_b,
-		int milli_a, int milli_b )
-{
-	if ( mWidth == 0 )
-	{
-		Init(bitmap_a->mWidth,bitmap_a->mHeight);
-	}
-	color_t *src1 = bitmap_a->mData;
-	color_t *src2 = bitmap_b->mData;
-	color_t *dst  = mData;
-
-	int i;
-	for ( i = 0; i < mWidth * mHeight; i++ )
-	{
-		dst->r = ( src1->r * milli_a + src2->r * milli_b ) / 1000;
-		dst->g = ( src1->g * milli_a + src2->g * milli_b ) / 1000;
-		dst->b = ( src1->b * milli_a + src2->b * milli_b ) / 1000;
-		src1++; src2++; dst++;
-	}
-}
-*/
-
-
-/*bool CLinear16::WritePng16(char *filename)
-{
-	return true;
-}
-bool CLinear16::ReadPng16(char *filename)
-{
-	return true;
-}*/
-
-bool CLinear16::WriteBmp(char *filename)
-{
-	FILE *f = NULL;
-	int size, res;
-	BITMAPFILEHEADER bfh;
-	BITMAPINFOHEADER bmh;
-
-	fopen_s( &f, filename,"wb");
-	if ( !f ) return false;
+	FILE *f = fopen(filename.c_str(),"wb");
+	if (!f) return false;
 	size = mWidth*mHeight*3;
 
 	memcpy(&bfh.bfType,"BM",2);
 	bfh.bfSize = size + 56;
 	bfh.bfOffBits = 54;
-	res = (int)fwrite(&bfh,1,sizeof(bfh),f);
+	fwrite(&bfh,1,sizeof(bfh),f);
 
 	memset(&bmh,0,sizeof(bmh));
 	bmh.biSize = sizeof(bmh);
@@ -311,30 +228,29 @@ bool CLinear16::WriteBmp(char *filename)
 	bmh.biBitCount = 24;
 	bmh.biXPelsPerMeter = 2834;
 	bmh.biYPelsPerMeter = 2834;
-	res = (int)fwrite(&bmh,1,sizeof(bmh),f);
-	int npixels = mWidth*mHeight;
+	fwrite(&bmh,1,sizeof(bmh),f);
 	color_t *cptr = mData;
 	uint8_t color[4];
 	int pad = 0;
 	int rowbytes = mWidth * 3;
 	int modu = rowbytes & 3;
-	if ( modu )
+	if (modu)
 		pad = 4 - modu;
 
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
-		for ( int x = 0; x < mWidth; x++ )
+		for (int x = 0; x < mWidth; x++)
 		{
 			color[0] = cptr->b * 255 / 65535;
 			color[1] = cptr->g * 255 / 65535;
 			color[2] = cptr->r * 255 / 65535;
-			res = (int)fwrite(color,1,3,f);
+			fwrite(color,1,3,f);
 			cptr++;
 		}
-		if ( pad )
-			res = (int)fwrite(color,1,pad,f);
+		if (pad)
+			fwrite(color,1,pad,f);
 	}
-	res = (int)fwrite(color,1,2,f);
+	fwrite(color,1,2,f);
 	fclose(f);
 	return true;
 }
@@ -354,15 +270,15 @@ void CLinear16::Upsample(CLinear16 *bmp)
 	color_t *src3 = mData - 1 + mWidth;
 	color_t *dst1 = bmp->mData;
 	color_t *dst2 = bmp->mData + bmp->mWidth;
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
-		if ( y == 0 )
+		if (y == 0)
 		{
 			UpfilterLeft(src2, src2, src3, dst1, dst2);
 			src1++; src2++; src3++;
 			dst1 += 2;
 			dst2 += 2;
-			for ( int x = 1; x < mWidth-1; x++ )
+			for (int x = 1; x < mWidth-1; x++)
 			{
 				Upfilter(src2, src2, src3, dst1, dst2);
 				dst1 += 2;
@@ -374,13 +290,13 @@ void CLinear16::Upsample(CLinear16 *bmp)
 			dst1 += 2;
 			dst2 += 2;
 		}
-		else if ( y == mHeight - 1 )
+		else if (y == mHeight - 1)
 		{
 			UpfilterLeft(src1, src2, src2, dst1, dst2);
 			src1++; src2++; src3++;
 			dst1 += 2;
 			dst2 += 2;
-			for ( int x = 1; x < mWidth-1; x++ )
+			for (int x = 1; x < mWidth-1; x++)
 			{
 				Upfilter(src1, src2, src2, dst1, dst2);
 				src1++; src2++; src3++;
@@ -397,7 +313,7 @@ void CLinear16::Upsample(CLinear16 *bmp)
 			UpfilterLeft(src1++, src2++, src3++, dst1, dst2);
 			dst1 += 2;
 			dst2 += 2;
-			for ( int x = 1; x < mWidth-1; x++ )
+			for (int x = 1; x < mWidth-1; x++)
 			{
 				Upfilter(src1++, src2++, src3++, dst1, dst2);
 				dst1 += 2;
@@ -424,11 +340,11 @@ void CLinear16::UpsampleX(CLinear16 *bmp)
 {
 	color_t *src = mData - 1;
 	color_t *dst = bmp->mData;
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
 		UpfilterXLeft(src++, dst);
 		dst += 2;
-		for ( int x = 1; x < mWidth-1; x++ )
+		for (int x = 1; x < mWidth-1; x++)
 		{
 			UpfilterX(src++, dst);
 			dst += 2;
@@ -453,19 +369,19 @@ void CLinear16::UpsampleY(CLinear16 *bmp)
 	color_t *src3 = mData + mWidth;
 	color_t *dst1 = bmp->mData;
 	color_t *dst2 = bmp->mData + bmp->mWidth;
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
-		if ( y == 0 )
+		if (y == 0)
 		{
-			for ( int x = 0; x < mWidth; x++ )
+			for (int x = 0; x < mWidth; x++)
 			{
 				UpfilterY(src2, src2, src3, dst1++, dst2++);
 				src1++; src2++; src3++;
 			}
 		}
-		else if ( y == mHeight - 1 )
+		else if (y == mHeight - 1)
 		{
-			for ( int x = 0; x < mWidth; x++ )
+			for (int x = 0; x < mWidth; x++)
 			{
 				UpfilterY(src1, src2, src2, dst1++, dst2++);
 				src1++; src2++; src3++;
@@ -473,7 +389,7 @@ void CLinear16::UpsampleY(CLinear16 *bmp)
 		}
 		else
 		{
-			for ( int x = 0; x < mWidth; x++ )
+			for (int x = 0; x < mWidth; x++)
 			{
 				Upfilter(src1++, src2++, src3++, dst1++, dst2++);
 			}
@@ -501,16 +417,16 @@ void CLinear16::Downsample(CLinear16 *bmp)
 	color_t *src4 = mData - 1 + mWidth * 2;
 	color_t *dst = bmp->mData;
 	int padw = mWidth & 1;
-	for ( int y = 0; y < bmp->mHeight; y++)
+	for (int y = 0; y < bmp->mHeight; y++)
 	{
-		if ( y == 0 )
+		if (y == 0)
 		{
 			DownfilterLeft(src4, src2, src3, dst++);
 			src1 += 2;
 			src2 += 2;
 			src3 += 2;
 			src4 += 2;
-			for ( int x = 1; x < bmp->mWidth-1; x++ )
+			for (int x = 1; x < bmp->mWidth-1; x++)
 			{
 				Downfilter(src4, src2, src3, dst++);
 				src1 += 2;
@@ -524,14 +440,14 @@ void CLinear16::Downsample(CLinear16 *bmp)
 			src3 += 2 + padw;
 			src4 += 2 + padw;
 		}
-		else if ( y == bmp->mHeight - 1 )
+		else if (y == bmp->mHeight - 1)
 		{
 			DownfilterLeft(src1, src2, src3, dst++);
 			src1 += 2;
 			src2 += 2;
 			src3 += 2;
 			src4 += 2;
-			for ( int x = 1; x < bmp->mWidth-1; x++ )
+			for (int x = 1; x < bmp->mWidth-1; x++)
 			{
 				Downfilter(src1, src2, src3, dst++);
 				src1 += 2;
@@ -552,7 +468,7 @@ void CLinear16::Downsample(CLinear16 *bmp)
 			src2 += 2;
 			src3 += 2;
 			src4 += 2;
-			for ( int x = 1; x < bmp->mWidth-1; x++ )
+			for (int x = 1; x < bmp->mWidth-1; x++)
 			{
 				Downfilter(src1, src2, src3, src4, dst++);
 				src1 += 2;
@@ -587,11 +503,11 @@ void CLinear16::DownsampleX(CLinear16 *bmp)
 	assert(mHeight == bmp->mHeight);
 	color_t *src = mData - 1;
 	color_t *dst = bmp->mData;
-	for ( int y = 0; y < bmp->mHeight; y++)
+	for (int y = 0; y < bmp->mHeight; y++)
 	{
 		DownfilterXLeft(src, dst++);
 		src += 2;
-		for ( int x = 1; x < bmp->mWidth-1; x++ )
+		for (int x = 1; x < bmp->mWidth-1; x++)
 		{
 			DownfilterX(src, dst++);
 			src += 2;
@@ -618,19 +534,19 @@ void CLinear16::DownsampleY(CLinear16 *bmp)
 	color_t *src3 = mData + mWidth;
 	color_t *src4 = mData + mWidth * 2;
 	color_t *dst = bmp->mData;
-	for ( int y = 0; y < bmp->mHeight; y++)
+	for (int y = 0; y < bmp->mHeight; y++)
 	{
-		if ( y == 0 )
+		if (y == 0)
 		{
-			for ( int x = 0; x < bmp->mWidth; x++ )
+			for (int x = 0; x < bmp->mWidth; x++)
 			{
 				DownfilterY(src2++, src3++, src4++, dst++);
 				src1++;
 			}
 		}
-		else if ( y == bmp->mHeight - 1 )
+		else if (y == bmp->mHeight - 1)
 		{
-			for ( int x = 0; x < bmp->mWidth; x++ )
+			for (int x = 0; x < bmp->mWidth; x++)
 			{
 				DownfilterY(src2++, src3++, src1++, dst++);
 				src4++;
@@ -638,7 +554,7 @@ void CLinear16::DownsampleY(CLinear16 *bmp)
 		}
 		else
 		{
-			for ( int x = 0; x < bmp->mWidth; x++ )
+			for (int x = 0; x < bmp->mWidth; x++)
 			{
 				DownfilterY(src1++, src2++, src3++, src4++, dst++);
 			}
@@ -650,14 +566,14 @@ void CLinear16::DownsampleY(CLinear16 *bmp)
 	}
 }
 
-void CLinear16::WriteSimpleScanline( color_t *src, uint16_t *dst, 
-	ESimpleFormat format )
+void CLinear16::WriteSimpleScanline(color_t *src, uint16_t *dst, 
+	ESimpleFormat format)
 {
 
-	switch ( format )
+	switch (format)
 	{
 	case ESimpleFormatRgba:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			*dst++ = src->r;
 			*dst++ = src->g;
@@ -667,7 +583,7 @@ void CLinear16::WriteSimpleScanline( color_t *src, uint16_t *dst,
 		}
 		break;
 	case ESimpleFormatBgra:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			*dst++ = src->b;
 			*dst++ = src->g;
@@ -677,7 +593,7 @@ void CLinear16::WriteSimpleScanline( color_t *src, uint16_t *dst,
 		}
 		break;
 	case ESimpleFormatRgb:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			*dst++ = src->r;
 			*dst++ = src->g;
@@ -686,7 +602,7 @@ void CLinear16::WriteSimpleScanline( color_t *src, uint16_t *dst,
 		}
 		break;
 	case ESimpleFormatBgr:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			*dst++ = src->b;
 			*dst++ = src->g;
@@ -695,29 +611,29 @@ void CLinear16::WriteSimpleScanline( color_t *src, uint16_t *dst,
 		}
 		break;
 	case ESimpleFormatL:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
-			*dst++ = ( src->r * 299 + src->g * 587 + src->b * 114 ) / 1000;
+			*dst++ = (src->r * 299 + src->g * 587 + src->b * 114) / 1000;
 			src++;
 		}
 		break;
 	case ESimpleFormatLa:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
-			*dst++ = ( src->r * 299 + src->g * 587 + src->b * 114 ) / 1000;
+			*dst++ = (src->r * 299 + src->g * 587 + src->b * 114) / 1000;
 			*dst++ = src->a;
 			src++;
 		}
 		break;
 	}
 }
-void CLinear16::ReadSimpleScanline( uint16_t *src, color_t *dst, 
-	ESimpleFormat format )
+void CLinear16::ReadSimpleScanline(uint16_t *src, color_t *dst, 
+	ESimpleFormat format)
 {
-	switch ( format )
+	switch (format)
 	{
 	case ESimpleFormatRgba:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			dst->r = *src++;
 			dst->g = *src++;
@@ -727,7 +643,7 @@ void CLinear16::ReadSimpleScanline( uint16_t *src, color_t *dst,
 		}
 		break;
 	case ESimpleFormatBgra:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			dst->b = *src++;
 			dst->g = *src++;
@@ -737,7 +653,7 @@ void CLinear16::ReadSimpleScanline( uint16_t *src, color_t *dst,
 		}
 		break;
 	case ESimpleFormatRgb:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			dst->r = *src++;
 			dst->g = *src++;
@@ -747,7 +663,7 @@ void CLinear16::ReadSimpleScanline( uint16_t *src, color_t *dst,
 		}
 		break;
 	case ESimpleFormatBgr:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			dst->b = *src++;
 			dst->g = *src++;
@@ -757,7 +673,7 @@ void CLinear16::ReadSimpleScanline( uint16_t *src, color_t *dst,
 		}
 		break;
 	case ESimpleFormatL:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			dst->b = *src;
 			dst->g = *src;
@@ -767,7 +683,7 @@ void CLinear16::ReadSimpleScanline( uint16_t *src, color_t *dst,
 		}
 		break;
 	case ESimpleFormatLa:
-		for ( int i = 0; i < mWidth; i++ )
+		for (int i = 0; i < mWidth; i++)
 		{
 			dst->b = *src;
 			dst->g = *src;
@@ -779,17 +695,17 @@ void CLinear16::ReadSimpleScanline( uint16_t *src, color_t *dst,
 	}
 }
 
-bool CLinear16::WriteSimple16(char *filename, ESimpleFormat format)
+bool CLinear16::WriteSimple16(std::string filename, ESimpleFormat format)
 {
 	int bytesPerPixel;
 	TSimpleHeader header;
 	int bytesPerLine;
-	FILE *file;
+	;
 
-	fopen_s(&file, filename, "wb");
-	if ( file == NULL ) 
+	FILE *f = fopen(filename.c_str(), "wb");
+	if (f == NULL) 
 		return false;
-	switch ( format )
+	switch (format)
 	{
 	case ESimpleFormatRgba:
 	case ESimpleFormatBgra:
@@ -810,40 +726,39 @@ bool CLinear16::WriteSimple16(char *filename, ESimpleFormat format)
 	return false;
 	}
 
-	header.cookie = 'PMIS' + ((uint64_t)'ECIL' << 32L);
+	header.cookieA = 'PMIS';
+	header.cookieB = 'ECIL';
 	header.datasize = bytesPerPixel * mWidth * mHeight;
 	header.width = mWidth;
 	header.height = mHeight;
 	header.bits = 16;
 	header.format = format;
-	fwrite(&header,1,sizeof(TSimpleHeader),file);
+	fwrite(&header,1,sizeof(TSimpleHeader),f);
 	bytesPerLine = mWidth * bytesPerPixel;
 	uint16_t *dst = (uint16_t *) malloc(bytesPerLine);
 	color_t *src = mData;
-	for ( int i = 0; i < mHeight; i++ )
+	for (int i = 0; i < mHeight; i++)
 	{
-		WriteSimpleScanline( src, dst, format );
-		fwrite(dst,1,bytesPerLine,file);
+		WriteSimpleScanline(src, dst, format);
+		fwrite(dst,1,bytesPerLine,f);
 		src += mWidth;
 	}
-	fclose(file);
+	fclose(f);
 	free(dst);
 	return true;
 }
 
-bool CLinear16::ReadSimple16(char *filename)
+bool CLinear16::ReadSimple16(std::string filename)
 {
 	int bytesPerPixel;
 	TSimpleHeader header;
 	int bytesPerLine;
-	FILE *file;
-	fopen_s(&file, filename, "rb");
+	FILE *f = fopen(filename.c_str(), "rb");
 
-	if ( filename == NULL ) 
-		return false;
-	size_t res = fread(&header,1,sizeof(TSimpleHeader),file);
+	size_t res = fread(&header,1,sizeof(TSimpleHeader),f);
+    assert(res == sizeof(TSimpleHeader));
 
-	switch ( header.format )
+	switch (header.format)
 	{
 	case ESimpleFormatRgba:
 	case ESimpleFormatBgra:
@@ -865,7 +780,8 @@ bool CLinear16::ReadSimple16(char *filename)
 	}
 
 
-	assert(header.cookie == 0x4543494c504d4953L);
+	assert(header.cookieA == 'PMIS');
+	assert(header.cookieB == 'ECIL');
 	//header.width = mWidth;
 	//header.height = mHeight;
 	//header.bits = 16;
@@ -874,13 +790,13 @@ bool CLinear16::ReadSimple16(char *filename)
 	bytesPerLine = mWidth * bytesPerPixel;
 	uint16_t *src = (uint16_t *) malloc(bytesPerLine);
 	color_t *dst = mData;
-	for ( int i = 0; i < mHeight; i++ )
+	for (int i = 0; i < mHeight; i++)
 	{
-		fread(src,1,bytesPerLine,file);
-		ReadSimpleScanline( src, dst, (ESimpleFormat) header.format );
+		fread(src,1,bytesPerLine,f);
+		ReadSimpleScanline(src, dst, (ESimpleFormat) header.format);
 		dst += mWidth;
 	}
-	fclose(file);
+	fclose(f);
 	free(src);
 	return true;
 }
@@ -891,9 +807,9 @@ bool CLinear16::ReadSimple16(char *filename)
 void CLinear16::ConvertToMonochrome()
 {
 	color_t *c = mData;
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
-		for ( int x = 0; x < mWidth; x++ )
+		for (int x = 0; x < mWidth; x++)
 		{
 			// scale by 10000
 			int luma = c->r * 2126 + c->g * 7152 + c->b * 722 + 5000;
@@ -912,16 +828,16 @@ void CLinear16::CompositePremultiplied(CLinear16 *overlay)
 {
 	color_t *src = overlay->mData;
 	color_t *dst = mData;
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
-		for ( int x = 0; x < mWidth; x++ )
+		for (int x = 0; x < mWidth; x++)
 		{
-			if ( src->a == 0xffff )
+			if (src->a == 0xffff)
 			{
 				// destination gets 100% of source
 				*dst = *src;
 			}
-			else if ( src->a > 0 )
+			else if (src->a > 0)
 			{
 				// destination gets 100% of source
 				int b = 0xffff - src->a;
@@ -939,22 +855,22 @@ void CLinear16::CompositeStraight(CLinear16 *overlay)
 {
 	color_t *src = overlay->mData;
 	color_t *dst = mData;
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
-		for ( int x = 0; x < mWidth; x++ )
+		for (int x = 0; x < mWidth; x++)
 		{
-			if ( src->a == 0xffff )
+			if (src->a == 0xffff)
 			{
 				// destination gets 100% of source
 				*dst = *src;
 			}
-			else if ( src->a > 0 )
+			else if (src->a > 0)
 			{
 				// destination gets 100% of source
 				int b = 0xffff - src->a;
-				dst->b = ( dst->b * b + src->b * src->a ) / 65535;
-				dst->g = ( dst->g * b + src->g * src->a ) / 65535;
-				dst->r = ( dst->r * b + src->r * src->a ) / 65535;
+				dst->b = (dst->b * b + src->b * src->a) / 65535;
+				dst->g = (dst->g * b + src->g * src->a) / 65535;
+				dst->r = (dst->r * b + src->r * src->a) / 65535;
 			}
 			src++;
 			dst++;
@@ -966,9 +882,9 @@ void CLinear16::CompositeStraight(CLinear16 *overlay)
 void CLinear16::WriteLumaToAlpha(bool invertLuma)
 {
 	color_t *c = mData;
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
-		for ( int x = 0; x < mWidth; x++ )
+		for (int x = 0; x < mWidth; x++)
 		{
 			int luma = c->r * 2126 + c->g * 7152 +c->b * 722 + 5000;
 			luma /= 10000;
@@ -1004,7 +920,7 @@ void CLinear16::BlitImage(CLinear16 *image, int dstX, int dstY)
 
 void CLinear16::DrawMonochromeAnaglyph(CLinear16 *left, CLinear16 *right)
 {
-	if ( left && right )
+	if (left && right)
 	{
 		assert(left->mWidth == mWidth);
 		assert(left->mHeight == mHeight);
@@ -1029,7 +945,7 @@ void CLinear16::DrawMonochromeAnaglyph(CLinear16 *left, CLinear16 *right)
 			}
 		}
 	}
-	else if ( left )
+	else if (left)
 	{
 		assert(left->mWidth == mWidth);
 		assert(left->mHeight == mHeight);
@@ -1048,7 +964,7 @@ void CLinear16::DrawMonochromeAnaglyph(CLinear16 *left, CLinear16 *right)
 			}
 		}
 	}
-	else if ( right )
+	else if (right)
 	{
 		assert(right->mWidth == mWidth);
 		assert(right->mHeight == mHeight);
@@ -1072,22 +988,22 @@ void CLinear16::DrawMonochromeAnaglyph(CLinear16 *left, CLinear16 *right)
 
 }
 
-void CLinear16::Flip( bool flipX, bool flipY )
+void CLinear16::Flip(bool flipX, bool flipY)
 {
 	color_t *src;
 	color_t *dst;
 	color_t temp;
 
-	if ( flipY )
+	if (flipY)
 	{
-		for ( int y = 0; y < mHeight/2; y++ )
+		for (int y = 0; y < mHeight/2; y++)
 		{
 			src = mData + y * mWidth;
 			dst = mData + (mHeight - 1 - y) * mWidth;
-			if ( flipX )
+			if (flipX)
 			{
 				dst += mWidth - 1;
-				for ( int x = 0; x < mWidth; x++ )
+				for (int x = 0; x < mWidth; x++)
 				{
 					temp = *src;
 					*src++ = *dst;
@@ -1096,7 +1012,7 @@ void CLinear16::Flip( bool flipX, bool flipY )
 			}
 			else
 			{
-				for ( int x = 0; x < mWidth; x++ )
+				for (int x = 0; x < mWidth; x++)
 				{
 					temp = *src;
 					*src++ = *dst;
@@ -1105,13 +1021,13 @@ void CLinear16::Flip( bool flipX, bool flipY )
 			}
 		}
 	}
-	else if ( flipX )
+	else if (flipX)
 	{
-		for ( int y = 0; y < mHeight; y++ )
+		for (int y = 0; y < mHeight; y++)
 		{
 			src = mData + y * mWidth;
 			dst = src + mWidth - 1;
-			for ( int x = 0; x < mWidth/2; x++ )
+			for (int x = 0; x < mWidth/2; x++)
 			{
 				temp = *src;
 				*src++ = *dst;
@@ -1123,14 +1039,14 @@ void CLinear16::Flip( bool flipX, bool flipY )
 
 void CLinear16::Rotate90()
 {
-	CLinear16 *temp = gPool.Alloc(mWidth, mHeight);
+	CLinear16 *temp = new CLinear16(mWidth, mHeight);
 
 	color_t *src = mData;
 
-	for ( int y = 0; y < mHeight; y++ )
+	for (int y = 0; y < mHeight; y++)
 	{
 		color_t *dst = temp->mData + mWidth - 1 - y;
-		for ( int x = 0; x < mWidth; x++ )
+		for (int x = 0; x < mWidth; x++)
 		{
 			*dst = *src++;
 			dst += mWidth;
@@ -1139,15 +1055,15 @@ void CLinear16::Rotate90()
 
 	BlitImage(temp, 0, 0);
 
-	gPool.Free(temp);
+	delete temp;
 }
 
 
-void CLinear16::Rotate( int angle )
+void CLinear16::Rotate(int angle)
 {
 	assert(mWidth == mHeight);
 	angle = angle % 360;
-	switch ( angle )
+	switch (angle)
 	{
 	case 0:
 		break;

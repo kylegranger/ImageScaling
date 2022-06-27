@@ -1,14 +1,21 @@
 // File: filter16.h
-// Date: August 24, 2014
-// Create by: Kyle Granger
-// License: Public Domain
-// Checked into Github: October 17, 2015
+// Created by: Kyle Granger
+// License: MIT
+
 
 
 #ifndef __FILTER16_H
 #define __FILTER16_H
 
-#include "acidtypes.h"
+#include "stdint.h"
+
+typedef struct color_t {
+	uint16_t b;
+	uint16_t g;
+	uint16_t r;
+	uint16_t a;
+} color_t;
+
 
 // 2D down
 extern void Downfilter      (color_t *src1, color_t *src2, color_t *src3, color_t *src4, color_t *dst);

@@ -1,13 +1,11 @@
 // File: simple.h
-// Date: August 24, 2014
-// Create by: Kyle Granger
-// License: Public Domain
-// Checked into Github: October 17, 2015
+// Created by: Kyle Granger
+// License: MIT
 
 #ifndef SIMPLE_H
 #define SIMPLE_H
 
-#include "acidtypes.h"
+#include "stdint.h"
 
 typedef enum ESimpleFormat {
 	ESimpleFormatRgba = 3131,  // 4 channels
@@ -21,7 +19,8 @@ typedef enum ESimpleFormat {
 
 typedef struct TSimpleHeader {
 	// 'SIMPLICE' = 0x4543494c504d4953L
-	int64_t cookie; 
+	uint32_t cookieA;
+	uint32_t cookieB;
 	// datasize does not include 32-byte header
 	int64_t datasize;
 	int32_t width;

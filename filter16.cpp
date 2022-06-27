@@ -1,12 +1,11 @@
 // File: filter16.cpp
-// Date: August 24, 2014
-// Create by: Kyle Granger
-// License: Public Domain
-// Checked into Github: October 17, 2015
+// Created by: Kyle Granger
+// License: MIT
 
 
 
-#include "acidtypes.h"
+
+#include "filter16.h"
 
 
 void DownfilterX(color_t *src, color_t *dst)
@@ -21,7 +20,7 @@ void DownfilterX(color_t *src, color_t *dst)
 
 void DownfilterXLeft(color_t *src, color_t *dst)
 {
-	// we mix four source pixels into one destination pixel
+	// we mix three source pixels into one destination pixel
 	// All on same scanline.
 	dst->r = ((3 * (src[1].r + src[2].r) + src[3].r + 3) / 7);
 	dst->g = ((3 * (src[1].g + src[2].g) + src[3].g + 3) / 7);
@@ -31,7 +30,7 @@ void DownfilterXLeft(color_t *src, color_t *dst)
 
 void DownfilterXRight(color_t *src, color_t *dst)
 {
-	// we mix four source pixels into one destination pixel
+	// we mix three source pixels into one destination pixel
 	// All on same scanline.
 	dst->r = ((src[0].r + 3 * (src[1].r + src[2].r) + 3) / 7);
 	dst->g = ((src[0].g + 3 * (src[1].g + src[2].g) + 3) / 7);
